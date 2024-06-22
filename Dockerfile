@@ -1,22 +1,19 @@
 # Start from the latest golang base image
-FROM golang:latest
-
-# Add Maintainer Info
-LABEL maintainer="Your Name <abc.email@example.com>"
+FROM public.ecr.aws/docker/library/golang:1.22-alpine3.20
+RUN apk --no-cache add ca-certificates tzdata curl nano
 
 # Set the Current Working Directory inside the container
-WORKDIR /
+WORKDIR /app
 
-# Copy the source from the current directory to the Working Directory inside the container
-COPY . .
-
+# Copy and download dependencies
+COPY go.mod go.sum ./
 RUN go mod tidy
 
-# Disable Go Modules
-ENV GO111MODULE=off
+# Copy the source code
+COPY . .
 
-# Build the Go app
-RUN go build -o back4app .
+# Build the Go application
+RUN CGO_ENABLED=0 GOOS=linux go build -o back4app .
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
