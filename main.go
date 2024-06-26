@@ -24,8 +24,8 @@ func appStart() {
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      ser.route,
-		ReadTimeout:  180 * time.Second,
-		WriteTimeout: 180 * time.Second,
+		ReadTimeout:  3 * time.Minute,
+		WriteTimeout: 75 * time.Second,
 	}
 
 	log.Print("👉 client work on :", cfg.Port)

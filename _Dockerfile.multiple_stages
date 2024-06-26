@@ -15,7 +15,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o back4app .
 
 # Stage 2: Final stage
-FROM public.ecr.aws/docker/library/alpine:3.18
+FROM public.ecr.aws/docker/library/alpine:3.20
 
 # Set the working directory
 WORKDIR /app
