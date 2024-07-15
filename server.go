@@ -4,28 +4,36 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/teng231/back4app/httpserver"
 )
 
 type Serve struct {
-	route *gin.Engine
+	*httpserver.Engine
 }
 
 func newServer() *Serve {
-	r := &Serve{}
-	r.route = gin.New()
-	r.route.SetTrustedProxies(nil)
-	r.route.Use(gin.Recovery(), gin.Logger(), enableCORsCheck())
+	r := &Serve{&httpserver.Engine{gin.New()}}
+	r.SetTrustedProxies(nil)
 	return r
 }
 
-func (r *Serve) apiMapping() *Serve {
+func (r *Serve) customMiddleware() *Serve {
+	r.Use(gin.Recovery(), gin.Logger())
+	r.Use(httpserver.UsingCORSMode(cfg.DomainAllowed), httpserver.UsingTimeTracing())
+	return r
+}
 
-	r.route.GET("/", func(ctx *gin.Context) {
+func (r *Serve) registerHandlers() *Serve {
+
+	r.GET("/", r.handleHomelander)
+	r.GET("/ping", r.handlePing)
+
+	r.GETs([]string{"/a", "/b"}, func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "[4client]👉Hope for the best, prepare for the worst")
 	})
 
-	r.route.GET("/ping", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	r.GET("/response-err", httpserver.UsingTimeTracing(), func(ctx *gin.Context) {
+		httpserver.JSON(ctx, http.StatusBadRequest, "[4client]👉Hope for the best, prepare for the worst")
 	})
 
 	return r
