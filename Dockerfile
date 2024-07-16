@@ -19,4 +19,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o back4app .
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["./back4app start"]
+CMD ["./back4app", "start"]
