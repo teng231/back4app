@@ -78,17 +78,41 @@ func (d *TiDB) UpdateHolding(updator, selector *ledger.Holding) error {
 }
 
 // ResetHolding ...
-func (d *TiDB) ResetHolding(updator, selector *ledger.Holding) error {
-	result := d.engine.Table(tblHolding).Where(selector).Updates(map[string]any{
-		"updated": updator.Updated,
+func (d *TiDB) ResetHolding(selector *ledger.Holding) error {
+	tx := d.engine.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	if err := tx.Error; err != nil {
+		return err
+	}
+	result := tx.Table(tblHolding).Where(selector).Updates(map[string]any{
+		"updated": time.Now().Unix(),
 		"Amount":  0.0,
+		"tvl":     0.0,
 	})
 	if result.Error != nil {
+		tx.Commit()
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		tx.Commit()
 		return errors.New(errhandler.E_can_not_update)
 	}
+
+	if err := tx.Table(tblTx).Create(&ledger.Tx{
+		PortfolioID: selector.PortfolioID,
+		Symbol:      selector.Symbol,
+		Created:     time.Now().Unix(),
+		Action:      "RESET",
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
 	return nil
 }
 

@@ -192,11 +192,7 @@ func (b *Bot) registerHandlers() *Bot {
 			return ctx.Send(react.ManShrugging.Emoji + "Không tìm thấy thông tin")
 		}
 
-		if err := b.db.ResetHolding(&ledger.Holding{Symbol: strings.ToUpper(sym), PortfolioID: por.ID},
-			&ledger.Holding{
-				Updated: time.Now().Unix(),
-				Amount:  0.0,
-			}); err != nil {
+		if err := b.db.ResetHolding(&ledger.Holding{Symbol: strings.ToUpper(sym), PortfolioID: por.ID}); err != nil {
 			return ctx.Send(react.ManShrugging.Emoji + err.Error())
 		}
 		return ctx.Send("Done!")

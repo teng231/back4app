@@ -23,7 +23,7 @@ type ITiDB interface {
 	FindPortfolio(in *ledger.Portfolio) (*ledger.Portfolio, error)
 	InsertHolding(config *ledger.Holding) error
 	UpdateHolding(updator, selector *ledger.Holding) error
-	ResetHolding(updator, selector *ledger.Holding) error
+	ResetHolding(selector *ledger.Holding) error
 	FindHolding(in *ledger.Holding) (*ledger.Holding, error)
 	ListHoldings(rq *ledger.HoldingRequest) ([]*ledger.Holding, error)
 	ListTxs(rq *ledger.TxRequest) ([]*ledger.Tx, error)
