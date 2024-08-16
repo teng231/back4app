@@ -34,6 +34,7 @@ func shortHolding(holdings []*ledger.Holding) []map[string]any {
 			"symbol": val.Symbol,
 			"amount": fmt.Sprintf("%.3f", val.Amount),
 			"tvl":    fmt.Sprintf("%.1f", val.TVL),
+			"avg":    fmt.Sprintf("%.1f", val.TVL/val.Amount),
 			"%":      fmt.Sprintf("%.1f", val.TVL*100/tvlAll),
 		})
 	}
@@ -46,6 +47,7 @@ func shortTx(txs []*ledger.Tx) []map[string]any {
 			"symbol": tx.Symbol,
 			"amount": fmt.Sprintf("%.3f", tx.Amount),
 			"income": fmt.Sprintf("%.1f", tx.Income),
+			"avg":    fmt.Sprintf("%.1f", tx.Income/tx.Amount),
 			"action": tx.Action,
 		})
 	}
