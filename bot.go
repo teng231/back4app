@@ -30,12 +30,21 @@ func shortHolding(holdings []*ledger.Holding) []map[string]any {
 		tvlAll += holding.TVL
 	}
 	for _, val := range holdings {
+		amount := fmt.Sprintf("%.1f", val.Amount)
+		if val.Amount < 1 {
+			amount = fmt.Sprintf("%.3f", val.Amount)
+		}
+		avg := val.TVL / val.Amount
+		avgStr := fmt.Sprintf("%.1f", val.TVL/val.Amount)
+		if avg < 1 {
+			avgStr = fmt.Sprintf("%.3f", val.TVL/val.Amount)
+		}
 		out = append(out, map[string]any{
-			"symbol": val.Symbol,
-			"amount": fmt.Sprintf("%.3f", val.Amount),
-			"tvl":    fmt.Sprintf("%.1f", val.TVL),
-			"avg":    fmt.Sprintf("%.1f", val.TVL/val.Amount),
-			"%":      fmt.Sprintf("%.1f", val.TVL*100/tvlAll),
+			"sym": val.Symbol,
+			"amt": amount,
+			"tvl": fmt.Sprintf("%.1f", val.TVL),
+			"avg": avgStr,
+			"%":   fmt.Sprintf("%.1f", val.TVL*100/tvlAll),
 		})
 	}
 	return out
