@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	tblComic    = "comics"
-	tblCategory = "categories"
-	tblTag      = "tags"
-	tblChapter  = "chapters"
-	// tblComicTag      = "comic_tags"
-	// tblComicCategory = "comic_categories"
+	tblComic         = "comics"
+	tblCategory      = "categories"
+	tblTag           = "tags"
+	tblChapter       = "chapters"
+	tblComicTag      = "comic_tags"
+	tblComicCategory = "comic_categories"
 )
 
 type ComicDB struct {
@@ -35,8 +35,10 @@ type IComicDB interface {
 	UpdateComic(updator, selector *khotruyenclub.Comic) error
 	FindComic(in *khotruyenclub.Comic) (*khotruyenclub.Comic, error)
 	ListComics(rq *khotruyenclub.ComicRequest) ([]*khotruyenclub.Comic, error)
+	ListSimilarComics(rq *khotruyenclub.Comic, limit int) ([]*khotruyenclub.Comic, error)
 	CountComics(rq *khotruyenclub.ComicRequest) (int64, error)
 	ScanComicTable(cond *khotruyenclub.ComicRequest, vChan chan<- *khotruyenclub.Comic, wg *sync.WaitGroup) error
+	ListComicByCategoryId(rq *khotruyenclub.ComicRequest) ([]*khotruyenclub.Comic, error)
 
 	InsertCategory(category *khotruyenclub.Category) error
 	UpdateCategory(updator, selector *khotruyenclub.Category) error
@@ -51,18 +53,35 @@ type IComicDB interface {
 	UpsertTag(tags []*khotruyenclub.Tag) ([]*khotruyenclub.Tag, error)
 
 	FindChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter, error)
+	FindPreviousChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter, error)
+	FindNextChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter, error)
 	InsertChapter(chapters ...*khotruyenclub.Chapter) error
 	UpdateChapter(updator, selector *khotruyenclub.Chapter) error
 	ListChapters(rq *khotruyenclub.ChapterRequest) ([]*khotruyenclub.Chapter, error)
 	CountChapters(rq *khotruyenclub.ChapterRequest) (int64, error)
 
-	// InsertComicTag(comicTag *khotruyenclub.ComicTag) error
+	InsertComicTag(comicTag ...*khotruyenclub.ComicTag) error
 	// DeleteComicTag(selector *khotruyenclub.ComicTag) error
 
 	// DeleteComicCategory(selector *khotruyenclub.ComicCategory) error
-	// InsertComicCategory(comicCategory *khotruyenclub.ComicCategory) error
+	InsertComicCategory(comicCategory ...*khotruyenclub.ComicCategory) error
+}
+type PreloadQuery struct {
+	Table     string
+	Condition any
 }
 
+func preloadRequest(preloads []*PreloadQuery, ss *gorm.DB) {
+	for _, preload := range preloads {
+		if preload.Condition == nil {
+			ss.Preload(preload.Table)
+			continue
+		}
+		ss.Preload(preload.Table, func(db *gorm.DB) *gorm.DB {
+			return db.Table(preload.Table).Where(preload.Condition)
+		})
+	}
+}
 func (d *ComicDB) StatusCheck() error {
 	conn, err := d.engine.DB()
 
@@ -88,12 +107,12 @@ func (d *ComicDB) Migrate() error {
 	if err := d.engine.Table(tblChapter).AutoMigrate(khotruyenclub.Chapter{}); err != nil {
 		return err
 	}
-	// if err := d.engine.Table(tblComicTag).AutoMigrate(khotruyenclub.ComicTag{}); err != nil {
-	// 	return err
-	// }
-	// if err := d.engine.Table(tblComicCategory).AutoMigrate(khotruyenclub.ComicCategory{}); err != nil {
-	// 	return err
-	// }
+	if err := d.engine.Table(tblComicTag).AutoMigrate(khotruyenclub.ComicTag{}); err != nil {
+		return err
+	}
+	if err := d.engine.Table(tblComicCategory).AutoMigrate(khotruyenclub.ComicCategory{}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -129,7 +148,11 @@ func (d *ComicDB) InsertComic(comic *khotruyenclub.Comic) error {
 
 // UpdateComic ...
 func (d *ComicDB) UpdateComic(updator, selector *khotruyenclub.Comic) error {
-	result := d.engine.Table(tblComic).Where(selector).Updates(updator)
+	result := d.engine.Table(tblComic).Where(selector).Updates(map[string]any{
+		"last_chapter":         updator.LastChapter,
+		"last_chapter_updated": updator.LastChapterUpdated,
+		"total_chapter":        gorm.Expr("total_chapter + ?", updator.TotalChapter),
+	})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -163,11 +186,39 @@ func (d *ComicDB) CountComics(rq *khotruyenclub.ComicRequest) (int64, error) {
 	}
 	return count, nil
 }
+func (d *ComicDB) ListSimilarComics(rq *khotruyenclub.Comic, limit int) ([]*khotruyenclub.Comic, error) {
+	var comics []*khotruyenclub.Comic
+	ss := d.engine.Table(tblComic).Select("DISTINCT comics.*")
+	ss.Joins("JOIN " + tblComicCategory + " ON " + tblComic + ".id = " + tblComicCategory + ".comic_id")
+	ss.Where(tblComicCategory+".category_id IN (?)",
+		d.engine.Select("category_id").
+			Table(tblComicCategory).
+			Where("comic_id = ?", rq.ID)).
+		Where("comic_id != ?", rq.ID).Limit(limit).Find(&comics)
+	return comics, nil
+}
+
+func (d *ComicDB) ListComicByCategoryId(rq *khotruyenclub.ComicRequest) ([]*khotruyenclub.Comic, error) {
+	var comics []*khotruyenclub.Comic
+	ss := d.engine.Table(tblComic).Select("DISTINCT comics.*")
+	ss.Joins("JOIN " + tblComicCategory + " ON " + tblComic + ".id = " + tblComicCategory + ".comic_id")
+	ss.Where(tblComicCategory+".category_id = ", rq.CategoryID).
+		Limit(rq.Limit).
+		Order(tblComic + ".last_chapter_updated desc ")
+	if rq.Page > 1 {
+		ss.Offset(rq.Limit * rq.Page)
+	}
+	ss.Find(&comics)
+	return comics, nil
+}
 func (d *ComicDB) ListComics(rq *khotruyenclub.ComicRequest) ([]*khotruyenclub.Comic, error) {
 	var comics []*khotruyenclub.Comic
 	ss := d.engine.Table(tblComic)
 	if rq.ID != 0 {
 		ss.Where("id = ?", rq.ID)
+	}
+	if len(rq.IDs) > 0 {
+		ss.Where("ids IN ?", rq.IDs)
 	}
 	if rq.Status != "" {
 		ss.Where("status = ?", rq.Status)
@@ -184,7 +235,12 @@ func (d *ComicDB) ListComics(rq *khotruyenclub.ComicRequest) ([]*khotruyenclub.C
 	if len(rq.Cols) > 0 {
 		ss.Select(rq.Cols)
 	}
-	err := ss.Order("id desc").Find(&comics).Error
+	if rq.Order == "" {
+		ss.Order("id desc")
+	} else {
+		ss.Order(rq.Order)
+	}
+	err := ss.Find(&comics).Error
 	if err != nil {
 		return nil, err
 	}
@@ -532,6 +588,42 @@ func (d *ComicDB) FindChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter
 	return out, nil
 }
 
+// FindChapter ...
+func (d *ComicDB) FindNextChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter, error) {
+	out := &khotruyenclub.Chapter{}
+	err := d.engine.Table(tblChapter).
+		Where("comic_id = ?", in.ComicID).
+		Where("id > ?", in.ID).
+		Order("id asc").
+		Select("id", "shortcut", "title").
+		Take(out).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, errors.New("chapter not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FindChapter ...
+func (d *ComicDB) FindPreviousChapter(in *khotruyenclub.Chapter) (*khotruyenclub.Chapter, error) {
+	out := &khotruyenclub.Chapter{}
+	err := d.engine.Table(tblChapter).
+		Where("comic_id = ?", in.ComicID).
+		Where("id < ?", in.ID).
+		Order("id desc").
+		Select("id", "shortcut", "title").
+		Take(out).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, errors.New("chapter not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeleteChapter ...
 func (d *ComicDB) DeleteChapter(selector *khotruyenclub.Chapter) error {
 	result := d.engine.Table(tblChapter).Where(selector).Delete(&khotruyenclub.Chapter{})
@@ -587,50 +679,96 @@ func (d *ComicDB) CountChapters(rq *khotruyenclub.ChapterRequest) (int64, error)
 	return count, nil
 }
 
-// // InsertComicCategory ...
-// func (d *ComicDB) InsertComicCategory(comicCategory *khotruyenclub.ComicCategory) error {
-// 	result := d.engine.Table(tblComicCategory).Create(comicCategory)
-// 	if result.Error != nil {
-// 		return result.Error
-// 	}
-// 	if result.RowsAffected == 0 {
-// 		return errors.New("cannot insert comic category")
-// 	}
-// 	return nil
-// }
+// InsertComicCategory ...
+func (d *ComicDB) InsertComicCategory(comicCategory ...*khotruyenclub.ComicCategory) error {
+	result := d.engine.Table(tblComicCategory).Create(comicCategory)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot insert comic category")
+	}
+	return nil
+}
 
-// // DeleteComicCategory ...
-// func (d *ComicDB) DeleteComicCategory(selector *khotruyenclub.ComicCategory) error {
-// 	result := d.engine.Table(tblComicCategory).Where(selector).Delete(&khotruyenclub.ComicCategory{})
-// 	if result.Error != nil {
-// 		return result.Error
-// 	}
-// 	if result.RowsAffected == 0 {
-// 		return errors.New("cannot delete comic category")
-// 	}
-// 	return nil
-// }
+// DeleteComicCategory ...
+func (d *ComicDB) DeleteComicCategory(selector *khotruyenclub.ComicCategory) error {
+	result := d.engine.Table(tblComicCategory).Where(selector).Delete(&khotruyenclub.ComicCategory{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot delete comic category")
+	}
+	return nil
+}
 
-// // InsertComicTag ...
-// func (d *ComicDB) InsertComicTag(comicTag *khotruyenclub.ComicTag) error {
-// 	result := d.engine.Table(tblComicTag).Create(comicTag)
-// 	if result.Error != nil {
-// 		return result.Error
-// 	}
-// 	if result.RowsAffected == 0 {
-// 		return errors.New("cannot insert comic tag")
-// 	}
-// 	return nil
-// }
+// FindComicCategory ...
+func (d *ComicDB) FindComicCategory(in *khotruyenclub.ComicCategory) (*khotruyenclub.ComicCategory, error) {
+	out := &khotruyenclub.ComicCategory{}
+	err := d.engine.Table(tblComicCategory).Where(in).Take(out).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, errors.New("comic category not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
-// // DeleteComicTag ...
-// func (d *ComicDB) DeleteComicTag(selector *khotruyenclub.ComicTag) error {
-// 	result := d.engine.Table(tblComicTag).Where(selector).Delete(&khotruyenclub.ComicTag{})
-// 	if result.Error != nil {
-// 		return result.Error
-// 	}
-// 	if result.RowsAffected == 0 {
-// 		return errors.New("cannot delete comic tag")
-// 	}
-// 	return nil
-// }
+// FindComicCategory ...
+func (d *ComicDB) ListComicCategory(in *khotruyenclub.ComicCategory) ([]*khotruyenclub.ComicCategory, error) {
+	list := make([]*khotruyenclub.ComicCategory, 0)
+	err := d.engine.Table(tblComicCategory).Where(in).Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// InsertComicTag ...
+func (d *ComicDB) InsertComicTag(comicTag ...*khotruyenclub.ComicTag) error {
+	result := d.engine.Table(tblComicTag).Create(comicTag)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot insert comic tag")
+	}
+	return nil
+}
+
+// FindComicTag ...
+func (d *ComicDB) FindComicTag(in *khotruyenclub.ComicTag) (*khotruyenclub.ComicTag, error) {
+	out := &khotruyenclub.ComicTag{}
+	err := d.engine.Table(tblComicTag).Where(in).Take(out).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, errors.New("comic tag not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteComicTag ...
+func (d *ComicDB) DeleteComicTag(selector *khotruyenclub.ComicTag) error {
+	result := d.engine.Table(tblComicTag).Where(selector).Delete(&khotruyenclub.ComicTag{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot delete comic tag")
+	}
+	return nil
+}
+
+// FindComicCategory ...
+func (d *ComicDB) ListComicTag(in *khotruyenclub.ComicTag) ([]*khotruyenclub.ComicTag, error) {
+	list := make([]*khotruyenclub.ComicTag, 0)
+	err := d.engine.Table(tblComicTag).Where(in).Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}

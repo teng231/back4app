@@ -29,6 +29,7 @@ type ITiDB interface {
 	ListTxs(rq *ledger.TxRequest) ([]*ledger.Tx, error)
 
 	TxHoldByTransation(req *ledger.Tx) error
+	TxHoldStableCoin(req *ledger.Tx) error
 }
 
 func (d *TiDB) StatusCheck() error {

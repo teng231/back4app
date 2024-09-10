@@ -49,12 +49,32 @@
                                 <li class="active"><a href="./index.html">Homepage</a></li>
                                 <li><a href="./categories.html">Categories <span class="arrow_carrot-down"></span></a>
                                     <ul class="dropdown">
-                                        <li><a href="./categories.html">Categories</a></li>
+                                        <div class="row">
+                                            <div class="col-4">
+                                              <li><a class="dropdown-item" href="#">Action</a></li>
+                                              <li><a class="dropdown-item" href="#">Another action</a></li>
+                                              <li><a class="dropdown-item" href="#">Something else here</a></li>
+                                            </div>
+                                            <div class="col-4">
+                                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                                <li><a class="dropdown-item" href="#">Another action</a></li>
+                                                <li><a class="dropdown-item" href="#">Something else here</a></li>
+                                              </div>
+                                              <div class="col-4">
+                                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                                <li><a class="dropdown-item" href="#">Another action</a></li>
+                                                <!-- <li><a class="dropdown-item" href="#">Something else here</a></li> -->
+                                               </div>
+                                          </div>
+                                        <!-- {{ range $key, $value := .mapCategories}}
+                                            <li><a href="./categories.html">{{$value.Title}}</a></li>
+                                        {{end}} -->
+                                        <!-- <li><a href="./categories.html">Categories</a></li>
                                         <li><a href="./anime-details.html">Anime Details</a></li>
                                         <li><a href="./anime-watching.html">Anime Watching</a></li>
                                         <li><a href="./blog-details.html">Blog Details</a></li>
                                         <li><a href="./signup.html">Sign Up</a></li>
-                                        <li><a href="./login.html">Login</a></li>
+                                        <li><a href="./login.html">Login</a></li> -->
                                     </ul>
                                 </li>
                                 <li><a href="./blog.html">Our Blog</a></li>
@@ -109,7 +129,7 @@
                                             <li>{{.Title}}</li>
                                             {{ end }}
                                         </ul>
-                                        <h5><a href="/{{ .Shortcut }}">{{ .Title }}</a></h5>
+                                        <h5><a href="/comic/{{ .Shortcut }}">{{ .Title }}</a></h5>
                                     </div>
                                 </div>
                             </div>
@@ -145,7 +165,7 @@
                                             <li>{{.Title}}</li>
                                             {{ end }}
                                         </ul>
-                                        <h5><a href="/{{ .Shortcut }}">{{ .Title }}</a></h5>
+                                        <h5><a href="/comic/{{ .Shortcut }}">{{ .Title }}</a></h5>
                                     </div>
                                 </div>
                             </div>

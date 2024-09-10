@@ -30,13 +30,15 @@
 
 /* Template default CSS
 /*----------------------------------------*/
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap');
 
 html,
 body {
 	height: 100%;
-	font-family: "Mulish", sans-serif;
+	font-family: "IBM Plex Sans", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	background: #0b0c2a;
+	font-weight: 400;
 }
 
 h1,
@@ -48,7 +50,7 @@ h6 {
 	margin: 0;
 	color: #111111;
 	font-weight: 400;
-	font-family: "Mulish", sans-serif;
+	font-family: "IBM Plex Sans", sans-serif;
 }
 
 h1 {
@@ -77,7 +79,7 @@ h6 {
 
 p {
 	font-size: 15px;
-	font-family: "Mulish", sans-serif;
+	font-family: "IBM Plex Sans", sans-serif;
 	color: #3d3d3d;
 	font-weight: 400;
 	line-height: 25px;
@@ -376,7 +378,8 @@ ol {
 	position: absolute;
 	left: 0;
 	top: 82px;
-	width: 150px;
+	/* width: 150px; */
+	width: 500px;
 	background: #ffffff;
 	text-align: left;
 	padding: 5px 0;
@@ -1098,6 +1101,46 @@ ol {
 	color: #ffffff;
 	border-radius: 0 4px 4px 0;
 }
+
+.anime__details__btn .watch-nextprev span {
+	font-size: 13px;
+	color: #ffffff;
+	background: #e53637;
+	display: inline-block;
+	font-weight: 700;
+	letter-spacing: 4px;
+	text-transform: uppercase;
+	padding: 14px 20px;
+	border-radius: 4px 0 0 4px;
+	margin: 0 2px;
+}
+
+.anime__details__btn .watch-nextprev .btn-prev {
+	border-radius: 4px 0 0 4px;
+}
+.anime__details__btn .watch-nextprev .btn-prev {
+	border-radius:  0 4px 4px 0;
+}
+
+.anime__details__btn .watch-nextprev i.next {
+	font-size: 20px;
+	display: inline-block;
+	background: #e53637;
+	padding: 11px 5px 16px 8px;
+	color: #ffffff;
+	border-radius: 0 4px 4px 0;
+	text-align: right;
+}
+.anime__details__btn .watch-nextprev i.prev {
+	font-size: 20px;
+	display: inline-block;
+	background: #e53637;
+	padding: 11px 5px 16px 8px;
+	color: #ffffff;
+	border-radius: 4px 0 0 4px;
+	text-align: left;
+}
+
 
 .anime__details__review {
 	margin-bottom: 55px;

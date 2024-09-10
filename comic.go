@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,33 +29,55 @@ func upsertCommic(dbc db.IComicDB, comic *khotruyenclub.Comic) error {
 	comicData, err := dbc.FindComic(&khotruyenclub.Comic{Title: comic.Title})
 
 	if err != nil {
-		respCate, _ := dbc.UpsertCategory(comic.Categories)
-		respTag, _ := dbc.UpsertTag(comic.Tags)
+		// respCate, _ := dbc.UpsertCategory(comic.Categories)
+		// respTag, _ := dbc.UpsertTag(comic.Tags)
 
-		tags := ""
+		// tags := ""
 
-		cates := ""
+		// cates := ""
 
-		for i, cate := range respCate {
-			cates += strconv.Itoa(int(cate.ID))
-			if i != len(respCate)-1 {
-				cates += ","
-			}
-		}
+		// for i, cate := range respCate {
+		// 	cates += strconv.Itoa(int(cate.ID))
+		// 	if i != len(respCate)-1 {
+		// 		cates += ","
+		// 	}
+		// }
 
-		for i, tag := range respTag {
-			tags += strconv.Itoa(int(tag.ID))
-			if i != len(respTag)-1 {
-				tags += ","
-			}
-		}
-		comic.CategoryItems = cates
-		comic.TagItems = tags
+		// for i, tag := range respTag {
+		// 	tags += strconv.Itoa(int(tag.ID))
+		// 	if i != len(respTag)-1 {
+		// 		tags += ","
+		// 	}
+		// }
+		// comic.CategoryItems = cates
+		// comic.TagItems = tags
 		comic.Type = "truyen_tranh"
 		if err := dbc.InsertComic(comic); err != nil {
 			return err
 		}
 		comicData = comic
+
+		respCates, _ := dbc.UpsertCategory(comic.Categories)
+		respTags, _ := dbc.UpsertTag(comic.Tags)
+
+		comicCates := make([]*khotruyenclub.ComicCategory, 0)
+		comicTags := make([]*khotruyenclub.ComicTag, 0)
+
+		for _, respCate := range respCates {
+			comicCates = append(comicCates, &khotruyenclub.ComicCategory{ComicID: comic.ID, CategoryID: respCate.ID})
+		}
+
+		for _, respTag := range respTags {
+			comicTags = append(comicTags, &khotruyenclub.ComicTag{ComicID: comic.ID, TagID: respTag.ID})
+		}
+
+		if len(comicCates) > 0 {
+			dbc.InsertComicCategory(comicCates...)
+		}
+
+		if len(comicTags) > 0 {
+			dbc.InsertComicTag(comicTags...)
+		}
 	}
 
 	chapters, err := dbc.ListChapters(&khotruyenclub.ChapterRequest{ComicID: comicData.ID, Limit: 1, Order: "id desc "})
@@ -90,7 +111,11 @@ func upsertCommic(dbc db.IComicDB, comic *khotruyenclub.Comic) error {
 	}
 	lastChapter := chaptersInserted[0]
 
-	dbc.UpdateComic(&khotruyenclub.Comic{LastChapter: lastChapter.ID, LastChapterUpdated: lastChapter.CreatedAt},
+	dbc.UpdateComic(&khotruyenclub.Comic{
+		LastChapter:        lastChapter.ID,
+		LastChapterUpdated: lastChapter.CreatedAt,
+		TotalChapter:       int32(len(chaptersInserted)),
+	},
 		&khotruyenclub.Comic{ID: comicData.ID})
 	return nil
 }
@@ -158,50 +183,3 @@ func MakeCrawlerKhotruyen(dbComic db.IComicDB, exec executor.ISafeQueue, page in
 		page++
 	}
 }
-
-// func Recrawler(dbComic db.IComicDB, exec executor.ISafeQueue, startWithDate int64) {
-// 	// NOTE: crawler run
-// 	cComic := make(chan *khotruyenclub.Comic, 1000)
-// 	wg := &sync.WaitGroup{}
-
-// 	for i := 0; i < 10; i++ {
-// 		go func() {
-// 			for {
-// 				comic := <-cComic
-// 				// lấy tổng số chapter
-// 				// lấy tag, category
-// 				if err := khotruyenclub.FetchComicDetailChapter(comic); err != nil {
-// 					log.Print(err)
-// 				}
-// 				respCate, _ := dbComic.UpsertCategory(comic.Categories)
-// 				respTag, _ := dbComic.UpsertTag(comic.Tags)
-
-// 				tags := ""
-
-// 				cates := ""
-
-// 				for i, cate := range respCate {
-// 					cates += strconv.Itoa(int(cate.ID))
-// 					if i != len(comic.Categories)-1 {
-// 						cates += ","
-// 					}
-// 				}
-
-// 				for i, tag := range respTag {
-// 					tags += strconv.Itoa(int(tag.ID))
-// 					if i != len(comic.Categories)-1 {
-// 						tags += ","
-// 					}
-// 				}
-// 				comic.CategoryItems = cates
-// 				comic.TagItems = tags
-// 				if err := dbComic.UpdateComic(comic, &khotruyenclub.Comic{ID: comic.ID}); err != nil {
-// 					log.Print(err)
-// 				}
-// 			}
-// 		}()
-// 	}
-
-// 	dbComic.ScanComicTable(&khotruyenclub.ComicRequest{Cols: []string{"id", "source_url"}}, cComic, wg)
-// 	wg.Wait()
-// }
