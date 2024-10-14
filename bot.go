@@ -53,10 +53,10 @@ func shortHolding(holdings []*ledger.Holding) []map[string]any {
 		if val.Amount < 1 {
 			amount = fmt.Sprintf("%.3f", val.Amount)
 		}
-		avg := val.TVL / val.Amount
-		avgStr := fmt.Sprintf("%.1f", val.TVL/val.Amount)
-		if avg < 1 {
-			avgStr = fmt.Sprintf("%.3f", val.TVL/val.Amount)
+		// avg := val.TVL / val.Amount
+		avgStr := fmt.Sprintf("%.1f", val.AVG)
+		if val.AVG < 1 {
+			avgStr = fmt.Sprintf("%.3f", val.AVG)
 		}
 		perc := ""
 		if val.TVL*100/tvlAll < 0 {
@@ -179,7 +179,7 @@ func (b *Bot) registerHandlers() *Bot {
 			Symbol:      strings.ToUpper(sym),
 			Action:      "SELL",
 			Amount:      amount,
-			Income:      -sellPrice * amount,
+			Income:      sellPrice * amount,
 			Created:     time.Now().Unix(),
 		}
 		err = b.db.TxHoldByTransation(led)
@@ -266,7 +266,7 @@ func (b *Bot) registerHandlers() *Bot {
 			return ctx.Send(react.ManShrugging.Emoji + "Không tìm thấy thông tin")
 		}
 
-		txs, err := b.db.ListTxs(&ledger.TxRequest{PortfolioID: por.ID, Symbol: strings.ToUpper(sym)})
+		txs, err := b.db.ListTxs(&ledger.TxRequest{PortfolioID: por.ID, Symbol: strings.ToUpper(sym), Status: 2})
 		if err != nil {
 			return ctx.Send(react.ManShrugging.Emoji + err.Error())
 		}
@@ -288,6 +288,15 @@ func (b *Bot) registerHandlers() *Bot {
 		if err != nil {
 			return ctx.Send(react.ManShrugging.Emoji + "Không tìm thấy thông tin")
 		}
+
+		for _, holding := range holdings {
+			if strings.ToUpper(holding.Symbol) == "USDT" {
+				continue
+			}
+			avg, _ := b.db.GetAvg(&ledger.TxRequest{Action: "BUY", Symbol: strings.ToUpper(holding.Symbol), PortfolioID: por.ID, Status: 2})
+			holding.AVG = avg
+		}
+
 		// ctx.Send("ALL TVL")
 		now := time.Now().Unix()
 		filename := fmt.Sprintf("./%s_%d.png", ctx.Sender().Username, now)

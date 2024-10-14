@@ -38,6 +38,7 @@ type Holding struct {
 	Created     int64   `json:"created,omitempty"`
 	Status      int     `json:"status,omitempty"` // 2 active | -1 inactive or del
 	TVL         float64 `json:"tvl,omitempty"`    // tổng vào tiền
+	AVG         float32 `json:"-"`
 }
 
 type TxRequest struct {
@@ -45,10 +46,12 @@ type TxRequest struct {
 	PortfolioID int64    `json:"portfolio_id,omitempty"`
 	Symbol      string   `json:"symbol,omitempty"`  // ETH, BTC...
 	Symbols     []string `json:"symbols,omitempty"` // ETH, BTC...
-	Action      int      `json:"action,omitempty"`
+	Action      string   `json:"action,omitempty"`
 	Limit       int      `json:"limit,omitempty"`
 	Page        int      `json:"page,omitempty"`
 	Income      float64  `json:"income,omitempty"`
+	Status      int      `json:"status,omitempty"` // 2 active 1 del
+
 }
 
 type Tx struct {
@@ -61,4 +64,6 @@ type Tx struct {
 	AmountHoldingBefore float64 `json:"amount_holding_before,omitempty"`
 	AmountHoldingAfter  float64 `json:"amount_holding_after,omitempty"`
 	Income              float64 `json:"income,omitempty"`
+	Description         string  `json:"description,omitempty"`
+	Status              int     `json:"status,omitempty"` // 2 active 1 del
 }

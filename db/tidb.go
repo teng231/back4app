@@ -30,6 +30,8 @@ type ITiDB interface {
 
 	TxHoldByTransation(req *ledger.Tx) error
 	TxHoldStableCoin(req *ledger.Tx) error
+
+	GetAvg(rq *ledger.TxRequest) (float32, error)
 }
 
 func (d *TiDB) StatusCheck() error {

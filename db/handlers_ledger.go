@@ -102,11 +102,21 @@ func (d *TiDB) ResetHolding(selector *ledger.Holding) error {
 		return errors.New(errhandler.E_can_not_update)
 	}
 
+	if err := tx.Table(tblTx).Where(&ledger.Tx{
+		PortfolioID: selector.PortfolioID,
+		Symbol:      selector.Symbol,
+	}).Updates(&ledger.Tx{
+		Status: 1,
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
 	if err := tx.Table(tblTx).Create(&ledger.Tx{
 		PortfolioID: selector.PortfolioID,
 		Symbol:      selector.Symbol,
 		Created:     time.Now().Unix(),
 		Action:      "RESET",
+		Status:      2,
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -144,6 +154,7 @@ func (d *TiDB) listHoldingQuery(p *ledger.HoldingRequest) *gorm.DB {
 	if p.Status != 0 {
 		ss.Where("status = ?", p.Status)
 	}
+	ss.Where("tvl > 0")
 	return ss
 }
 
@@ -185,6 +196,16 @@ func (d *TiDB) ListTxs(rq *ledger.TxRequest) ([]*ledger.Tx, error) {
 	return holdings, nil
 }
 
+func (d *TiDB) GetAvg(rq *ledger.TxRequest) (float32, error) {
+	var avg float32
+	err := d.engine.Table(tblTx).Select("AVG(income/amount)").
+		Where("portfolio_id = ?", rq.PortfolioID).
+		Where("symbol = ?", rq.Symbol).
+		Where("status = ?", rq.Status).
+		Where("action = ?", rq.Action).Take(&avg).Error
+	return avg, err
+}
+
 // listTxQuery list config
 func (d *TiDB) listTxQuery(p *ledger.TxRequest) *gorm.DB {
 	ss := d.engine.Table(tblTx)
@@ -196,6 +217,9 @@ func (d *TiDB) listTxQuery(p *ledger.TxRequest) *gorm.DB {
 	}
 	if p.Symbol != "" {
 		ss.Where("symbol = ?", p.Symbol)
+	}
+	if p.Status != 0 {
+		ss.Where("status = ?", p.Status)
 	}
 	return ss
 }
@@ -222,11 +246,11 @@ func (d *TiDB) TxHoldStableCoin(req *ledger.Tx) error {
 			Status:      2,
 			Created:     time.Now().Unix(),
 		}
-		if err := tx.Table(tblHolding).Create(usd).Error; err != nil {
+
+		if err = tx.Table(tblHolding).Create(usd).Error; err != nil {
 			tx.Commit()
 			return err
 		}
-		return err
 	}
 	if req.Action == "SELL" && usd.Amount < req.Amount {
 		tx.Commit()
@@ -255,6 +279,7 @@ func (d *TiDB) TxHoldStableCoin(req *ledger.Tx) error {
 
 	req.AmountHoldingBefore = usd.Amount
 	req.AmountHoldingAfter = amount
+	req.Status = 2
 
 	if err = tx.Table(tblTx).Create(req).Error; err != nil {
 		tx.Rollback()
@@ -318,26 +343,36 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 			Status:      2,
 			Created:     time.Now().Unix(),
 		}
-		if err := tx.Table(tblHolding).Create(usd).Error; err != nil {
+		if err = tx.Table(tblHolding).Create(usd).Error; err != nil {
 			tx.Commit()
 			return err
 		}
-		return err
 	}
 
 	if req.Action == "SELL" && holding.Amount < req.Amount {
 		tx.Commit()
-		return errors.New("insufficient")
+		return errors.New("insufficient " + holding.Symbol)
+	}
+	if req.Action == "BUY" && usd.Amount < req.Income {
+		tx.Commit()
+		return errors.New("insufficient " + usd.Symbol)
 	}
 
 	amount := float64(0)
+	var tvlIncome interface{}
 	if req.Action == "SELL" {
-		usd.Amount -= req.Income
+		usd.Amount += req.Income
 		amount = holding.Amount - req.Amount
+		if holding.TVL-req.Income < 0 {
+			tvlIncome = 0
+		} else {
+			tvlIncome = gorm.Expr("tvl - ?", req.Income)
+		}
 	}
 	if req.Action == "BUY" {
 		usd.Amount -= req.Income
 		amount = holding.Amount + req.Amount
+		tvlIncome = gorm.Expr("tvl + ?", req.Income)
 	}
 
 	err = tx.Table(tblHolding).
@@ -345,7 +380,7 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 		Updates(map[string]any{
 			"updated": now,
 			"amount":  amount,
-			"tvl":     gorm.Expr("tvl + ?", req.Income),
+			"tvl":     tvlIncome,
 		}).Error
 	if err != nil {
 		tx.Commit()
@@ -366,7 +401,7 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 
 	req.AmountHoldingBefore = holding.Amount
 	req.AmountHoldingAfter = amount
-
+	req.Status = 2
 	if err = tx.Table(tblTx).Create(req).Error; err != nil {
 		tx.Rollback()
 		return err
