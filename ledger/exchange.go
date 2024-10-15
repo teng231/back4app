@@ -38,7 +38,7 @@ type Holding struct {
 	Created     int64   `json:"created,omitempty"`
 	Status      int     `json:"status,omitempty"` // 2 active | -1 inactive or del
 	TVL         float64 `json:"tvl,omitempty"`    // tổng vào tiền
-	AVG         float32 `json:"-"`
+	AVG         float32 `json:"avg,omitempty"`
 }
 
 type TxRequest struct {

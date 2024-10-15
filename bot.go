@@ -281,7 +281,7 @@ func (b *Bot) registerHandlers() *Bot {
 			PortfolioID: por.ID,
 			Limit:       25,
 			Order:       "TVL DESC",
-			Cols:        []string{"symbol", "amount", "tvl"},
+			Cols:        []string{"symbol", "amount", "tvl", "avg"},
 			Status:      2,
 		})
 
@@ -289,13 +289,13 @@ func (b *Bot) registerHandlers() *Bot {
 			return ctx.Send(react.ManShrugging.Emoji + "Không tìm thấy thông tin")
 		}
 
-		for _, holding := range holdings {
-			if strings.ToUpper(holding.Symbol) == "USDT" {
-				continue
-			}
-			avg, _ := b.db.GetAvg(&ledger.TxRequest{Action: "BUY", Symbol: strings.ToUpper(holding.Symbol), PortfolioID: por.ID, Status: 2})
-			holding.AVG = avg
-		}
+		// for _, holding := range holdings {
+		// 	if strings.ToUpper(holding.Symbol) == "USDT" {
+		// 		continue
+		// 	}
+		// 	avg, _ := b.db.GetAvg(&ledger.TxRequest{Action: "BUY", Symbol: strings.ToUpper(holding.Symbol), PortfolioID: por.ID, Status: 2})
+		// 	holding.AVG = avg
+		// }
 
 		// ctx.Send("ALL TVL")
 		now := time.Now().Unix()

@@ -2,6 +2,8 @@ package db
 
 import (
 	"errors"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/teng231/back4app/errhandler"
@@ -355,33 +357,56 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 	}
 	if req.Action == "BUY" && usd.Amount < req.Income {
 		tx.Commit()
+
 		return errors.New("insufficient " + usd.Symbol)
 	}
 
 	amount := float64(0)
-	var tvlIncome interface{}
+	updateData := map[string]any{
+		"updated": now,
+		// "amount":  amount,
+		// "tvl":     tvlIncome,
+	}
 	if req.Action == "SELL" {
 		usd.Amount += req.Income
-		amount = holding.Amount - req.Amount
+		updateData["amount"] = holding.Amount - req.Amount
 		if holding.TVL-req.Income < 0 {
-			tvlIncome = 0
+			updateData["tvl"] = 0
 		} else {
-			tvlIncome = gorm.Expr("tvl - ?", req.Income)
+			updateData["tvl"] = gorm.Expr("tvl - ?", req.Income)
 		}
 	}
 	if req.Action == "BUY" {
 		usd.Amount -= req.Income
-		amount = holding.Amount + req.Amount
-		tvlIncome = gorm.Expr("tvl + ?", req.Income)
+		updateData["amount"] = holding.Amount + req.Amount
+		updateData["tvl"] = gorm.Expr("tvl + ?", req.Income)
 	}
 
+	req.AmountHoldingBefore = holding.Amount
+	req.AmountHoldingAfter = amount
+	req.Status = 2
+	if err = tx.Table(tblTx).Create(req).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if req.Action == "BUY" {
+		var avg float32
+		err := tx.Table(tblTx).Select("AVG(income/amount)").
+			Where("portfolio_id = ?", holding.PortfolioID).
+			Where("symbol = ?", strings.ToUpper(holding.Symbol)).
+			Where("status = ?", 2).
+			Where("action = ?", "BUY").Take(&avg).Error
+		if err != nil {
+			log.Print(err)
+		}
+		if avg != 0 {
+			updateData["avg"] = avg
+		}
+	}
 	err = tx.Table(tblHolding).
 		Where("id", holding.ID).
-		Updates(map[string]any{
-			"updated": now,
-			"amount":  amount,
-			"tvl":     tvlIncome,
-		}).Error
+		Updates(updateData).Error
 	if err != nil {
 		tx.Commit()
 		return err
@@ -399,13 +424,6 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 		return err
 	}
 
-	req.AmountHoldingBefore = holding.Amount
-	req.AmountHoldingAfter = amount
-	req.Status = 2
-	if err = tx.Table(tblTx).Create(req).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
 	tx.Commit()
 	return nil
 }
