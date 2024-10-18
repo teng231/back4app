@@ -12,8 +12,8 @@ import (
 
 func MakePieDataChartToImg(filePath string, holdings []*ledger.Holding) {
 	pie := chart.PieChart{
-		Width:  450,
-		Height: 550,
+		Width:  650,
+		Height: 750,
 	}
 	pie.DPI = 100
 	valItems := make([]chart.Value, 0)
