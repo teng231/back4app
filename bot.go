@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/teng231/back4app/chart"
+	"github.com/teng231/back4app/cryptodata"
 	"github.com/teng231/back4app/db"
 	"github.com/teng231/back4app/errhandler"
 	"github.com/teng231/back4app/ledger"
@@ -20,7 +21,8 @@ import (
 
 type Bot struct {
 	*telebot.Bot
-	db db.ITiDB
+	db         db.ITiDB
+	cryptoData map[string]*cryptodata.TokenDetail
 }
 
 func trimFloat(number float64) string {
@@ -39,7 +41,7 @@ func trimFloat(number float64) string {
 	return fmt.Sprintf("%.0f", number)
 }
 
-func shortHolding(holdings []*ledger.Holding) []map[string]any {
+func shortHolding(holdings []*ledger.Holding, cryptoDatas map[string]*cryptodata.TokenDetail) []map[string]any {
 	out := make([]map[string]any, 0)
 	tvlAll := 0.0
 	for _, holding := range holdings {
@@ -58,18 +60,33 @@ func shortHolding(holdings []*ledger.Holding) []map[string]any {
 		if val.AVG < 1 {
 			avgStr = fmt.Sprintf("%.3f", val.AVG)
 		}
-		perc := ""
-		if val.TVL*100/tvlAll < 0 {
-			perc = "-"
-		} else {
-			perc = fmt.Sprintf("%.1f", val.TVL*100/tvlAll)
+		// perc := ""
+		// if val.TVL*100/tvlAll < 0 {
+		// 	perc = "-"
+		// } else {
+		// 	perc = fmt.Sprintf("%.1f", val.TVL*100/tvlAll)
+		// }
+		pc := 0.0
+		coin := cryptoDatas[val.Symbol]
+		if coin != nil {
+			pc = val.Amount * (coin.Price - float64(val.AVG))
+			// loss
+			// if coin.Price < val.AVG {
+			// 	pc = ()
+			// }
+
+			// // profit
+			// if coin.Price > val.AVG {
+
+			// }
 		}
 		out = append(out, map[string]any{
 			"sym": val.Symbol,
 			"amt": amount,
 			"tvl": fmt.Sprintf("%.1f", val.TVL),
 			"avg": avgStr,
-			"%":   perc,
+			"+/-": int64(pc),
+			// "%":   perc,
 		})
 	}
 	return out
@@ -97,7 +114,7 @@ func sendError(ctx tele.Context, txt1, txt2 string) error {
 func newBot(botToken string, db *db.TiDB) *Bot {
 	b := telebot.Start(botToken)
 	b.PrivateHandlers()
-	return &Bot{Bot: b, db: db}
+	return &Bot{Bot: b, db: db, cryptoData: cryptodata.ListCrytos()}
 }
 
 func (b *Bot) registerHandlers() *Bot {
@@ -317,7 +334,7 @@ func (b *Bot) registerHandlers() *Bot {
 		} else {
 			log.Print(err)
 		}
-		return ctx.Send("```\n"+utils.PrintTable(shortHolding(holdings))+"```", &tele.SendOptions{ParseMode: tele.ModeMarkdownV2})
+		return ctx.Send("```\n"+utils.PrintTable(shortHolding(holdings, b.cryptoData))+"```", &tele.SendOptions{ParseMode: tele.ModeMarkdownV2})
 	})
 	return b
 }

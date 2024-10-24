@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -33,7 +34,7 @@ func PrintTable(data []map[string]interface{}) string {
 	for key := range data[0] {
 		headers = append(headers, key)
 	}
-
+	sort.Strings(headers) // Sắp xếp headers theo thứ tự bảng chữ cái
 	maxLengths := getMaxLengths(data)
 
 	// Định dạng header
