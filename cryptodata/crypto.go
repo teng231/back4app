@@ -99,6 +99,9 @@ func ListCrytos() map[string]*TokenDetail {
 	json.Unmarshal(resp.Body, &cryptodatas)
 	cryptoMap = make(map[string]*TokenDetail)
 	for _, crytoVal := range cryptodatas {
+		if crytoVal.Slug == "mr-mint" {
+			continue
+		}
 		cryptoMap[crytoVal.Symbol] = crytoVal
 	}
 	return cryptoMap

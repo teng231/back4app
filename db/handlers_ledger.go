@@ -200,7 +200,7 @@ func (d *TiDB) ListTxs(rq *ledger.TxRequest) ([]*ledger.Tx, error) {
 
 func (d *TiDB) GetAvg(rq *ledger.TxRequest) (float32, error) {
 	var avg float32
-	err := d.engine.Table(tblTx).Select("AVG(income/amount)").
+	err := d.engine.Table(tblTx).Select("sum(income)/sum(amount)").
 		Where("portfolio_id = ?", rq.PortfolioID).
 		Where("symbol = ?", rq.Symbol).
 		Where("status = ?", rq.Status).
