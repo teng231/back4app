@@ -114,7 +114,15 @@ func sendError(ctx tele.Context, txt1, txt2 string) error {
 func newBot(botToken string, db *db.TiDB) *Bot {
 	b := telebot.Start(botToken)
 	b.PrivateHandlers()
-	return &Bot{Bot: b, db: db, cryptoData: cryptodata.ListCrytos()}
+	bot := &Bot{Bot: b, db: db, cryptoData: cryptodata.ListCrytos()}
+	tick := time.NewTicker(2 * time.Minute)
+	go func() {
+		for {
+			<-tick.C
+			bot.cryptoData = cryptodata.ListCrytos()
+		}
+	}()
+	return bot
 }
 
 func (b *Bot) registerHandlers() *Bot {
