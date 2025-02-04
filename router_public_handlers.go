@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	khotruyenclub "github.com/teng231/back4app/khotruyen.club"
+	"github.com/teng231/gotools/v2/httpclient"
 )
 
 func (r *Serve) handleHomelander(ctx *gin.Context) {
@@ -13,7 +14,17 @@ func (r *Serve) handleHomelander(ctx *gin.Context) {
 }
 
 func (r *Serve) handlePing(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	resp, _ := httpclient.Exec("http://ipinfo.io")
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+		"server_info": map[string]interface{}{
+			"ip": string(resp.Body),
+		},
+		"client": map[string]interface{}{
+			"ip":    ctx.ClientIP(),
+			"agent": ctx.Request.UserAgent(),
+		},
+	})
 }
 
 func (r *Serve) handleListComics(ctx *gin.Context) {
