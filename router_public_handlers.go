@@ -14,7 +14,7 @@ func (r *Serve) handleHomelander(ctx *gin.Context) {
 }
 
 func (r *Serve) handlePing(ctx *gin.Context) {
-	resp, _ := httpclient.Exec("http://ipinfo.io")
+	resp, _ := httpclient.Exec("http://ipinfo.io/ip")
 	ctx.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 		"server_info": map[string]interface{}{
