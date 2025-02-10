@@ -21,8 +21,9 @@ import (
 
 type Bot struct {
 	*telebot.Bot
-	db         db.ITiDB
-	cryptoData map[string]*cryptodata.TokenDetail
+	db                   db.ITiDB
+	cryptoData           map[string]*cryptodata.TokenDetail
+	timeUpdateCryptoData int64
 }
 
 func trimFloat(number float64) string {
@@ -60,25 +61,10 @@ func shortHolding(holdings []*ledger.Holding, cryptoDatas map[string]*cryptodata
 		if val.AVG < 1 {
 			avgStr = fmt.Sprintf("%.3f", val.AVG)
 		}
-		// perc := ""
-		// if val.TVL*100/tvlAll < 0 {
-		// 	perc = "-"
-		// } else {
-		// 	perc = fmt.Sprintf("%.1f", val.TVL*100/tvlAll)
-		// }
 		pc := 0.0
 		coin := cryptoDatas[val.Symbol]
 		if coin != nil {
 			pc = val.Amount * (coin.Price - float64(val.AVG))
-			// loss
-			// if coin.Price < val.AVG {
-			// 	pc = ()
-			// }
-
-			// // profit
-			// if coin.Price > val.AVG {
-
-			// }
 		}
 		out = append(out, map[string]any{
 			"sym": val.Symbol,
@@ -87,6 +73,30 @@ func shortHolding(holdings []*ledger.Holding, cryptoDatas map[string]*cryptodata
 			"avg": avgStr,
 			"+/-": int64(pc),
 			// "%":   perc,
+		})
+	}
+	return out
+}
+
+func shortHoldingDetail(holdings []*ledger.Holding, cryptoDatas map[string]*cryptodata.TokenDetail) []map[string]any {
+	out := make([]map[string]any, 0)
+	tvlAll := 0.0
+	for _, holding := range holdings {
+		if holding.TVL < 0 {
+			continue
+		}
+		tvlAll += holding.TVL
+	}
+	for _, val := range holdings {
+		pc := 0.0
+		coin := cryptoDatas[val.Symbol]
+		if coin != nil {
+			pc = val.Amount * (coin.Price - float64(val.AVG))
+		}
+		out = append(out, map[string]any{
+			"sym":   val.Symbol,
+			"+%-":   fmt.Sprintf("%.1f", pc/val.TVL),
+			"price": coin.Price,
 		})
 	}
 	return out
@@ -114,14 +124,7 @@ func sendError(ctx tele.Context, txt1, txt2 string) error {
 func newBot(botToken string, db *db.TiDB) *Bot {
 	b := telebot.Start(botToken)
 	b.PrivateHandlers()
-	bot := &Bot{Bot: b, db: db, cryptoData: cryptodata.ListCrytos()}
-	tick := time.NewTicker(2 * time.Minute)
-	go func() {
-		for {
-			<-tick.C
-			bot.cryptoData = cryptodata.ListCrytos()
-		}
-	}()
+	bot := &Bot{Bot: b, db: db, cryptoData: cryptodata.ListCrytos(), timeUpdateCryptoData: time.Now().Unix()}
 	return bot
 }
 
@@ -301,6 +304,13 @@ func (b *Bot) registerHandlers() *Bot {
 	})
 
 	b.Handle("/portfolio", func(ctx tele.Context) error {
+
+		// check value outdate
+		//
+		if b.timeUpdateCryptoData+60 < time.Now().Unix() {
+			b.cryptoData = cryptodata.ListCrytos()
+			b.timeUpdateCryptoData = time.Now().Unix()
+		}
 		por, _ := b.db.FindPortfolio(&ledger.Portfolio{ClientID: strconv.Itoa(int(ctx.Sender().ID))})
 		holdings, err := b.db.ListHoldings(&ledger.HoldingRequest{
 			PortfolioID: por.ID,
@@ -313,16 +323,6 @@ func (b *Bot) registerHandlers() *Bot {
 		if err != nil {
 			return ctx.Send(react.ManShrugging.Emoji + "Không tìm thấy thông tin")
 		}
-
-		// for _, holding := range holdings {
-		// 	if strings.ToUpper(holding.Symbol) == "USDT" {
-		// 		continue
-		// 	}
-		// 	avg, _ := b.db.GetAvg(&ledger.TxRequest{Action: "BUY", Symbol: strings.ToUpper(holding.Symbol), PortfolioID: por.ID, Status: 2})
-		// 	holding.AVG = avg
-		// }
-
-		// ctx.Send("ALL TVL")
 		now := time.Now().Unix()
 		filename := fmt.Sprintf("./%s_%d.png", ctx.Sender().Username, now)
 		chart.MakePieDataChartToImg(filename, holdings)
@@ -342,7 +342,11 @@ func (b *Bot) registerHandlers() *Bot {
 		} else {
 			log.Print(err)
 		}
-		return ctx.Send("```\n"+utils.PrintTable(shortHolding(holdings, b.cryptoData))+"```", &tele.SendOptions{ParseMode: tele.ModeMarkdownV2})
+		ctx.Send("```\n"+utils.PrintTable(shortHolding(holdings, b.cryptoData))+"```", &tele.SendOptions{ParseMode: tele.ModeMarkdownV2})
+
+		ctx.Send("```\n"+utils.PrintTable(shortHoldingDetail(holdings, b.cryptoData))+"```", &tele.SendOptions{ParseMode: tele.ModeMarkdownV2})
+
+		return nil
 	})
 	return b
 }
