@@ -105,7 +105,7 @@ func shortHoldingDetail(holdings []*ledger.Holding, cryptoDatas map[string]*cryp
 		}
 		out = append(out, map[string]any{
 			"sym":   val.Symbol,
-			"+%-":   fmt.Sprintf("%.1f", pc/val.TVL),
+			"+%-":   fmt.Sprintf("%.1f", pc*100/val.TVL),
 			"price": price,
 		})
 	}
