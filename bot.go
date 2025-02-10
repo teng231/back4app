@@ -93,10 +93,20 @@ func shortHoldingDetail(holdings []*ledger.Holding, cryptoDatas map[string]*cryp
 		if coin != nil {
 			pc = val.Amount * (coin.Price - float64(val.AVG))
 		}
+
+		price := ""
+
+		if coin.Price < 1 {
+			price = fmt.Sprintf("%.3f", coin.Price)
+		} else if coin.Price < 100 {
+			price = fmt.Sprintf("%.1f", coin.Price)
+		} else {
+			price = fmt.Sprintf("%.0f", coin.Price)
+		}
 		out = append(out, map[string]any{
 			"sym":   val.Symbol,
 			"+%-":   fmt.Sprintf("%.1f", pc/val.TVL),
-			"price": coin.Price,
+			"price": price,
 		})
 	}
 	return out
