@@ -125,7 +125,7 @@ func MakeCrawlerKhotruyen(dbComic db.IComicDB, exec executor.ISafeQueue, page in
 	// page := 1
 	for {
 		log.Printf("---------------- page %d ---------------------", page)
-		comics, err := khotruyenclub.FechComitPage("https://khotruyen.club/wp-admin/admin-ajax.php", page)
+		comics, err := khotruyenclub.FechComitPage("https://khotruyen.wiki/wp-admin/admin-ajax.php", page)
 		// data1, _ := json.MarshalIndent(comics, "", " ")
 		// log.Print(string(data1), err)
 		// com := comics[1]

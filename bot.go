@@ -120,11 +120,20 @@ func shortHoldingDetail(holdings []*ledger.Holding, cryptoDatas map[string]*cryp
 func shortTx(txs []*ledger.Tx) []map[string]any {
 	out := make([]map[string]any, 0)
 	for _, tx := range txs {
+		avg := tx.Income / tx.Amount
+		avgStr := ""
+		if avg > 1 && avg <= 100 {
+			avgStr = fmt.Sprintf("%.1f", avg)
+		} else if avg <= 1 {
+			avgStr = fmt.Sprintf("%.2f", avg)
+		} else {
+			avgStr = fmt.Sprintf("%.0f", avg)
+		}
 		out = append(out, map[string]any{
 			"sym":  tx.Symbol,
 			"amt":  fmt.Sprintf("%.3f", tx.Amount),
 			"inco": fmt.Sprintf("%.1f", tx.Income),
-			"avg":  fmt.Sprintf("%.1f", tx.Income/tx.Amount),
+			"avg":  avgStr,
 			"act":  tx.Action,
 		})
 	}
