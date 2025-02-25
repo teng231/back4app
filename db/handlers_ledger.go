@@ -200,10 +200,11 @@ func (d *TiDB) ListTxs(rq *ledger.TxRequest) ([]*ledger.Tx, error) {
 
 func (d *TiDB) GetAvg(rq *ledger.TxRequest) (float32, error) {
 	var avg float32
-	err := d.engine.Table(tblTx).Select("sum(income)/sum(amount)").
+	err := d.engine.Table(tblTx).Select("sum(income)/NULLIF(SUM(amount), 0)").
 		Where("portfolio_id = ?", rq.PortfolioID).
 		Where("symbol = ?", rq.Symbol).
 		Where("status = ?", rq.Status).
+		Where(" id > COALESCE((select id from tx where portfolio_id = ? and symbol = ? AND status = 2 AND action = 'RESET' order by id desc),0)", rq.PortfolioID, rq.Symbol).
 		Where("action = ?", rq.Action).Take(&avg).Error
 	return avg, err
 }
@@ -392,10 +393,11 @@ func (d *TiDB) TxHoldByTransation(req *ledger.Tx) error {
 
 	if req.Action == "BUY" {
 		var avg float32
-		err := tx.Table(tblTx).Select("AVG(income/amount)").
+		err := tx.Table(tblTx).Select("sum(income)/ NULLIF(SUM(amount), 0)").
 			Where("portfolio_id = ?", holding.PortfolioID).
 			Where("symbol = ?", strings.ToUpper(holding.Symbol)).
 			Where("status = ?", 2).
+			Where(" id > COALESCE((select id from tx where portfolio_id = ? and symbol = ? AND status = 2 AND action = 'RESET' order by id desc),0)", holding.PortfolioID, holding.Symbol).
 			Where("action = ?", "BUY").Take(&avg).Error
 		if err != nil {
 			log.Print(err)
